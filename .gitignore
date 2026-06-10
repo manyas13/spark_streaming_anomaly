@@ -1,0 +1,65 @@
+# =========================
+# 1. Archivos de Sistema Operativo
+# =========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =========================
+# 2. Python y Entornos
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+env/
+.env/
+.venv/
+# Archivo de variables de entorno con secretos (¡nunca subir!)
+.env
+
+# =========================
+# 3. Jupyter Notebooks
+# =========================
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# =========================
+# 4. Entornos de Desarrollo (IDEs)
+# =========================
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# =========================
+# 5. Testing y Logs
+# =========================
+*.log
+.coverage
+htmlcov/
+.pytest_cache/
+
+# =========================
+# 6. Apache Spark y Big Data
+# =========================
+spark-warehouse/
+derby.log
+metastore_db/
+logs/
+
+# =========================
+# 7. Datos y Modelos de Machine Learning (¡CRÍTICO!)
+# =========================
+# Git no está diseñado para almacenar archivos binarios pesados ni bases de datos
+data/*.csv
+data/*.parquet
+data/*.json
+*.pkl
+*.joblib
+*.model
