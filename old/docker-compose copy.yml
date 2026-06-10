@@ -13,32 +13,32 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT'
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9094'
+      # ESTA ES LA LÍNEA QUE SOLUCIONA TU ERROR:
       KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_CLUSTER_ID: '4L62IdOaS-mK7gVwVof_Ag'
-    volumes:
-      - kafka-data:/var/lib/kafka/data # <-- NUEVO: Persistencia para que no se borren tus tópicos
     networks:
       - spark-net
 
   # --- CÓMPUTO: APACHE SPARK MASTER OFICIAL ---
   spark-master:
-    image: apache/spark:3.5.0
+    image: apache/spark:3.5.1
     container_name: spark-master
     ports:
       - "8080:8080"
       - "7077:7077"
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
     volumes:
-      - ./:/opt/spark/work-dir
+      - ./data:/opt/spark/work-dir/data
+      - ./src:/opt/spark/work-dir/src
     networks:
       - spark-net
 
   # --- CÓMPUTO: APACHE SPARK WORKER OFICIAL ---
   spark-worker:
-    image: apache/spark:3.5.0
+    image: apache/spark:3.5.1
     container_name: spark-worker
     depends_on:
       - spark-master
@@ -46,7 +46,8 @@ services:
       - "8081:8081"
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
     volumes:
-      - ./:/opt/spark/work-dir
+      - ./data:/opt/spark/work-dir/data
+      - ./src:/opt/spark/work-dir/src
     networks:
       - spark-net
 
@@ -54,55 +55,17 @@ services:
   jupyter-lab:
     image: jupyter/pyspark-notebook:latest
     container_name: jupyter-lab
-    user: root #necesario para poder generar ficheros en el volumen compartido.
     ports:
       - "8888:8888"
-      - "4040:4040" # Spark UI para monitorizar el rendimiento del Streaming
+      - "4040:4040"
     volumes:
-      - ./:/home/jovyan/work
+      - ./jupyter:/home/jovyan/work
+      - ./data:/home/jovyan/work/data
+      - ./src:/home/jovyan/work/src
     environment:
       - JUPYTER_ENABLE_LAB=yes
     networks:
       - spark-net
-
-  # --- ALMACENAMIENTO: POSTGRESQL (NUEVO) ---
-  postgres:
-    image: postgres:15
-    container_name: postgres_db
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: 'tfm_user'
-      POSTGRES_PASSWORD: 'tfm_password'
-      POSTGRES_DB: 'fraud_detection'
-    volumes:
-      - postgres-data:/var/lib/postgresql/data # <-- NUEVO: Guarda las alertas de fraude de forma segura
-    networks:
-      - spark-net
-
-  # # --- VISUALIZACIÓN: STREAMLIT DASHBOARD (NUEVO) ---
-  # dashboard:
-  #   image: python:3.11-slim
-  #   container_name: streamlit-dashboard
-  #   ports:
-  #     - "8501:8501" # Puerto por defecto de Streamlit
-  #   volumes:
-  #     - ./src:/app # Mapea tu carpeta de scripts para que lea el archivo del dashboard (.py)
-  #   working_dir: /app
-  #   command: >
-  #     sh -c "pip install streamlit psycopg2-binary pandas matplotlib && 
-  #            streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0"
-  #   depends_on:
-  #     - postgres
-  #   networks:
-  #     - spark-net
-
-# --- DEFINICIÓN DE VOLÚMENES PERSISTENTES (NUEVO) ---
-volumes:
-  kafka-data:
-    driver: local
-  postgres-data:
-    driver: local
 
 networks:
   spark-net:
