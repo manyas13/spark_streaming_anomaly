@@ -25,7 +25,9 @@ services:
 
   # --- CÓMPUTO: APACHE SPARK MASTER OFICIAL ---
   spark-master:
-    image: apache/spark:3.5.0
+    build:
+      context: .
+      dockerfile: spark.Dockerfile
     container_name: spark-master
     ports:
       - "8080:8080"
@@ -38,7 +40,9 @@ services:
 
   # --- CÓMPUTO: APACHE SPARK WORKER OFICIAL ---
   spark-worker:
-    image: apache/spark:3.5.0
+    build:
+      context: .
+      dockerfile: spark.Dockerfile
     container_name: spark-worker
     depends_on:
       - spark-master

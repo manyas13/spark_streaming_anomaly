@@ -5,7 +5,7 @@ import joblib
 import pandas as pd
 from pyspark.sql import SparkSession, Row
 
-from src.pipeline.predictor import apply_ml_model
+from pipeline.inference.predictor import apply_ml_model
 
 
 # Creamos un modelo "falso" pero funcional para el test

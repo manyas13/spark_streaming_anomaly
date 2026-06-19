@@ -1,0 +1,108 @@
+# =========================================================
+# CONFIGURACIÓN FINAL DEL PIPELINE (DATASET KAGGLE)
+# =========================================================
+
+# 1. INGESTA DE DATOS
+# ---------------------------------------------------------
+kafka:
+  bootstrap_servers: "kafka:9093"
+  topic: "transactions"
+  starting_offsets: "latest"
+
+# 2. PARSEADOR DINÁMICO (30 variables de entrada del Kaggle)
+# ---------------------------------------------------------
+schema:
+  Time: "double"
+  V1: "double"
+  V2: "double"
+  V3: "double"
+  V4: "double"
+  V5: "double"
+  V6: "double"
+  V7: "double"
+  V8: "double"
+  V9: "double"
+  V10: "double"
+  V11: "double"
+  V12: "double"
+  V13: "double"
+  V14: "double"
+  V15: "double"
+  V16: "double"
+  V17: "double"
+  V18: "double"
+  V19: "double"
+  V20: "double"
+  V21: "double"
+  V22: "double"
+  V23: "double"
+  V24: "double"
+  V25: "double"
+  V26: "double"
+  V27: "double"
+  V28: "double"
+  Amount: "double"
+
+# 3. MOTOR DE INFERENCIA DE MACHINE LEARNING
+# ---------------------------------------------------------
+model:
+  name: "FraudDetector_Kaggle"
+  version: "v1.0.0"
+  path: "/opt/spark/work-dir/src/models/modelo_fraude.pkl"
+  # Inyectamos 29 variables al modelo (Excluimos 'Time')
+  features:
+    - "V1"
+    - "V2"
+    - "V3"
+    - "V4"
+    - "V5"
+    - "V6"
+    - "V7"
+    - "V8"
+    - "V9"
+    - "V10"
+    - "V11"
+    - "V12"
+    - "V13"
+    - "V14"
+    - "V15"
+    - "V16"
+    - "V17"
+    - "V18"
+    - "V19"
+    - "V20"
+    - "V21"
+    - "V22"
+    - "V23"
+    - "V24"
+    - "V25"
+    - "V26"
+    - "V27"
+    - "V28"
+    - "Amount"
+
+# 4. ALMACENAMIENTO DE RESULTADOS
+# ---------------------------------------------------------
+
+#sink:
+#  format: "console"
+#  mode: "append"
+#  checkpointLocation: "/opt/spark/work-dir/checkpoints/console_kaggle_test"
+#
+#  options:
+#    # Evita que Spark recorte visualmente los números largos y las predicciones
+#    truncate: "false"
+
+sink:
+  # CONSEJO E2E: Para tu PRIMERA prueba, cambia "jdbc" por "console"
+  # para asegurarte de que ves los datos fluir antes de pelearte con la Base de Datos.
+  format: "jdbc"
+  mode: "append"
+  checkpointLocation: "/opt/spark/work-dir/checkpoints/postgresql_kaggle"
+
+  options:
+    url: "jdbc:postgresql://postgres_db:5432/fraud_detection"
+    dbtable: "alertas_fraude"
+    user: "tfm_user"
+    password: "tfm_password"
+    driver: "org.postgresql.Driver"

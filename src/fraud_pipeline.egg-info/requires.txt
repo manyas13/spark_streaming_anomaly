@@ -3,4 +3,3 @@ pyyaml>=6.0
 pandas
 scikit-learn
 pyarrow>=10.0.1
-kafka-python

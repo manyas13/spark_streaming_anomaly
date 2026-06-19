@@ -3,7 +3,7 @@ from pyspark.sql import SparkSession, Row
 from pyspark.sql.types import StructType, DoubleType, StringType, IntegerType
 
 # Importamos las funciones pública y privada de tu parser
-from src.pipeline.parser import _build_dynamic_schema, parse_kafka_payload
+from pipeline.processing.parser import _build_dynamic_schema, parse_kafka_payload
 
 
 class TestParser(unittest.TestCase):
