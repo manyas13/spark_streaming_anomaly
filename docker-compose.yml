@@ -19,7 +19,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_CLUSTER_ID: '4L62IdOaS-mK7gVwVof_Ag'
     volumes:
-      - kafka-data:/var/lib/kafka/data # <-- NUEVO: Persistencia para que no se borren tus tópicos
+      - kafka-data:/var/lib/kafka/data
     networks:
       - spark-net
 
@@ -31,7 +31,7 @@ services:
     container_name: spark-master
     ports:
       - "8080:8080"
-      - "7077:7077"
+      - "4040:4040"
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
     volumes:
       - ./:/opt/spark/work-dir
@@ -58,10 +58,9 @@ services:
   jupyter-lab:
     image: jupyter/pyspark-notebook:latest
     container_name: jupyter-lab
-    user: root #necesario para poder generar ficheros en el volumen compartido.
+    user: root
     ports:
       - "8888:8888"
-      - "4040:4040" # Spark UI para monitorizar el rendimiento del Streaming
     volumes:
       - ./:/home/jovyan/work
     environment:
@@ -80,28 +79,11 @@ services:
       POSTGRES_PASSWORD: 'tfm_password'
       POSTGRES_DB: 'fraud_detection'
     volumes:
-      - postgres-data:/var/lib/postgresql/data # <-- NUEVO: Guarda las alertas de fraude de forma segura
+      - postgres-data:/var/lib/postgresql/data #
     networks:
       - spark-net
 
-  # # --- VISUALIZACIÓN: STREAMLIT DASHBOARD (NUEVO) ---
-  # dashboard:
-  #   image: python:3.11-slim
-  #   container_name: streamlit-dashboard
-  #   ports:
-  #     - "8501:8501" # Puerto por defecto de Streamlit
-  #   volumes:
-  #     - ./src:/app # Mapea tu carpeta de scripts para que lea el archivo del dashboard (.py)
-  #   working_dir: /app
-  #   command: >
-  #     sh -c "pip install streamlit psycopg2-binary pandas matplotlib && 
-  #            streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0"
-  #   depends_on:
-  #     - postgres
-  #   networks:
-  #     - spark-net
 
-# --- DEFINICIÓN DE VOLÚMENES PERSISTENTES (NUEVO) ---
 volumes:
   kafka-data:
     driver: local

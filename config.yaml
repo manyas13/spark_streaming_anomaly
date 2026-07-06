@@ -1,5 +1,5 @@
 # =========================================================
-# CONFIGURACIÓN FINAL DEL PIPELINE (DATASET KAGGLE)
+# CONFIGURACIÓN FINAL DEL PIPELINE (ARQUITECTURA AGNÓSTICA)
 # =========================================================
 
 # 1. INGESTA DE DATOS
@@ -9,39 +9,110 @@ kafka:
   topic: "transactions"
   starting_offsets: "latest"
 
-# 2. PARSEADOR DINÁMICO (30 variables de entrada del Kaggle)
+# 2. PARSEADOR Y TRANSFORMADOR UNIFICADO
 # ---------------------------------------------------------
 schema:
-  Time: "double"
-  V1: "double"
-  V2: "double"
-  V3: "double"
-  V4: "double"
-  V5: "double"
-  V6: "double"
-  V7: "double"
-  V8: "double"
-  V9: "double"
-  V10: "double"
-  V11: "double"
-  V12: "double"
-  V13: "double"
-  V14: "double"
-  V15: "double"
-  V16: "double"
-  V17: "double"
-  V18: "double"
-  V19: "double"
-  V20: "double"
-  V21: "double"
-  V22: "double"
-  V23: "double"
-  V24: "double"
-  V25: "double"
-  V26: "double"
-  V27: "double"
-  V28: "double"
-  Amount: "double"
+  Time:
+    path: "Time"
+    type: "double"
+  V1:
+    path: "V1"
+    type: "double"
+  V2:
+    path: "V2"
+    type: "double"
+  V3:
+    path: "V3"
+    type: "double"
+  V4:
+    path: "V4"
+    type: "double"
+  V5:
+    path: "V5"
+    type: "double"
+  V6:
+    path: "V6"
+    type: "double"
+  V7:
+    path: "V7"
+    type: "double"
+  V8:
+    path: "V8"
+    type: "double"
+  V9:
+    path: "V9"
+    type: "double"
+  V10:
+    path: "V10"
+    type: "double"
+  V11:
+    path: "V11"
+    type: "double"
+  V12:
+    path: "V12"
+    type: "double"
+  V13:
+    path: "V13"
+    type: "double"
+  V14:
+    path: "V14"
+    type: "double"
+  V15:
+    path: "V15"
+    type: "double"
+  V16:
+    path: "V16"
+    type: "double"
+  V17:
+    path: "V17"
+    type: "double"
+  V18:
+    path: "V18"
+    type: "double"
+  V19:
+    path: "V19"
+    type: "double"
+  V20:
+    path: "V20"
+    type: "double"
+  V21:
+    path: "V21"
+    type: "double"
+  V22:
+    path: "V22"
+    type: "double"
+  V23:
+    path: "V23"
+    type: "double"
+  V24:
+    path: "V24"
+    type: "double"
+  V25:
+    path: "V25"
+    type: "double"
+  V26:
+    path: "V26"
+    type: "double"
+  V27:
+    path: "V27"
+    type: "double"
+  V28:
+    path: "V28"
+    type: "double"
+  Amount:
+    path: "Amount"
+    type: "double"
+
+  # --- EJEMPLO DE INGENIERÍA DE CARACTERÍSTICAS (Comentado) ---
+  # V1_V2_Suma:
+  #   transform: "V1 + V2"
+  #   type: "double"
+  #   keep: true
+  # Variable_Temporal:
+  #   path: "CampoBasura"
+  #   type: "string"
+  #   keep: false
+
 
 # 3. MOTOR DE INFERENCIA DE MACHINE LEARNING
 # ---------------------------------------------------------
@@ -49,8 +120,10 @@ model:
   name: "FraudDetector_Kaggle"
   version: "v1.0.0"
   path: "/opt/spark/work-dir/src/models/modelo_fraude.pkl"
-  # Inyectamos 29 variables al modelo (Excluimos 'Time')
+  type: "sklearn"
+  # Inyectamos 29 variables al modelo (Excluimos 'Time' según tu diseño original)
   features:
+    - "Time"
     - "V1"
     - "V2"
     - "V3"
@@ -83,22 +156,10 @@ model:
 
 # 4. ALMACENAMIENTO DE RESULTADOS
 # ---------------------------------------------------------
-
-#sink:
-#  format: "console"
-#  mode: "append"
-#  checkpointLocation: "/opt/spark/work-dir/checkpoints/console_kaggle_test"
-#
-#  options:
-#    # Evita que Spark recorte visualmente los números largos y las predicciones
-#    truncate: "false"
-
 sink:
-  # CONSEJO E2E: Para tu PRIMERA prueba, cambia "jdbc" por "console"
-  # para asegurarte de que ves los datos fluir antes de pelearte con la Base de Datos.
   format: "jdbc"
   mode: "append"
-  checkpointLocation: "/opt/spark/work-dir/checkpoints/postgresql_kaggle"
+  checkpointLocation: "/opt/spark/work-dir/checkpoints/postgresql_kaggle_v2"
 
   options:
     url: "jdbc:postgresql://postgres_db:5432/fraud_detection"

@@ -5,7 +5,7 @@ from pyspark.sql import SparkSession
 # Importamos nuestros módulos
 from pipeline.config.loader import load_config
 from pipeline.ingestion.reader import read_from_kafka
-from pipeline.processing.parser import parse_kafka_payload
+from pipeline.processing.parser import parse_incoming_stream
 from pipeline.inference.predictor import apply_ml_model
 from pipeline.storage.writer import write_stream
 
@@ -35,6 +35,7 @@ def main():
     logger.info("Levantando motor de Apache Spark...")
     spark = SparkSession.builder \
         .appName("FraudDetectionPipeline") \
+        .config("spark.sql.execution.arrow.pyspark.enabled", "true") \
         .getOrCreate()
 
     spark.sparkContext.setLogLevel("WARN")
@@ -42,7 +43,7 @@ def main():
     try:
         # Ejecución de la pipeline
         df_raw = read_from_kafka(spark, config["kafka"])
-        df_parsed = parse_kafka_payload(df_raw, config["schema"])
+        df_parsed = parse_incoming_stream(df_raw, config["schema"])
         df_predictions = apply_ml_model(df_parsed, config["model"])
         query = write_stream(df_predictions, config["sink"])
 

@@ -1,70 +1,103 @@
 import logging
 import joblib
 import pandas as pd
+from typing import Iterator
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import pandas_udf, col, array
 from pyspark.sql.types import IntegerType
+from pyspark.ml import PipelineModel
+from pyspark.ml.feature import VectorAssembler
 
-# Configuramos el logger
 logger = logging.getLogger(__name__)
-
-# Variable global en el Worker para cachear el modelo y no saturar el disco
-_model_cache = None
-
-
-def load_model_cached(path):
-    global _model_cache
-    if _model_cache is None:
-        _model_cache = joblib.load(path)
-    return _model_cache
 
 
 def apply_ml_model(df_parsed: DataFrame, model_config: dict) -> DataFrame:
     """
-    Aplica un modelo de Machine Learning preentrenado (Scikit-Learn/XGBoost) al flujo de streaming.
+    Aplica un modelo predictivo al flujo de streaming de forma agnóstica.
+    Soporta ejecuciones distribuidas nativas (Spark MLlib) o externas (Scikit-Learn, etc.)
+    mediante el patrón optimizado de Iteradores para Pandas UDF (Spark 3.0+).
     """
+    model_type = model_config.get("type", "sklearn")
     model_path = model_config["path"]
     feature_cols = model_config["features"]
 
-    logger.info(f"Preparando la Pandas UDF con el modelo ubicado en: {model_path}")
+    logger.info(f"Iniciando servicio de inferencia. Tipo de modelo detectado: '{model_type}'")
 
-    # ==========================================
-    # LA MAGIA: PANDAS VECTORIZED UDF (PATRÓN ARRAY PYSPARK 3+)
-    # ==========================================
-    # Le decimos a Arrow explícitamente: "Vas a recibir UNA Serie de Pandas y devolver UNA Serie de Pandas"
-    @pandas_udf(IntegerType())
-    def predict_anomaly(features_series: pd.Series) -> pd.Series:
-        # 1. Cargamos el modelo (usando la caché para que vuele)
-        model = load_model_cached(model_path)
+    # =========================================================
+    # ENFOQUE A: MODELO NATIVO DE SPARK MLLIB
+    # =========================================================
+    if model_type == "spark_mllib":
+        try:
+            logger.info("Cargando Pipeline de Spark MLlib distribuido...")
+            spark_model = PipelineModel.load(model_path)
 
-        # 2. Reconstruimos el DataFrame 2D matricial que Scikit-Learn necesita
-        # features_series llega como una Serie donde cada celda es una lista: [V1, V2, ... Amount]
-        pdf = pd.DataFrame(features_series.tolist(), columns=feature_cols)
+            # Spark ML nativo requiere empaquetar los features en una sola columna Vector
+            assembler = VectorAssembler(inputCols=feature_cols, outputCol="features_vector")
+            df_assembled = assembler.transform(df_parsed)
 
-        # 3. Hacemos la predicción vectorizada
-        predictions = model.predict(pdf)
+            # Predicción nativa sobre la estructura DataFrame de Spark
+            df_predictions = spark_model.transform(df_assembled)
 
-        # 4. Devolvemos el resultado tipado correctamente
-        return pd.Series(predictions)
+            logger.info("Predicción nativa de Spark MLlib completada.")
+            return df_predictions
 
-    # ==========================================
-    # APLICACIÓN AL DATAFRAME
-    # ==========================================
-    try:
-        logger.info("Aplicando el modelo a los datos en streaming...")
+        except Exception as e:
+            logger.error(f"CRÍTICO: Error en ejecución nativa de Spark MLlib: {e}")
+            raise
 
-        # Seleccionamos las columnas dinámicas
-        selected_columns = [col(c) for c in feature_cols]
+    # =========================================================
+    # ENFOQUE B: MODELOS PYTHON (Scikit-Learn, XGBoost, TensorFlow, etc.)
+    # Utiliza el patrón avanzado Iterator[Series] -> Iterator[Series]
+    # =========================================================
+    else:
+        @pandas_udf(IntegerType())
+        def predict_anomaly(iterator: Iterator[pd.Series]) -> Iterator[pd.Series]:
+            # 1. INICIALIZACIÓN POR PARTICIÓN: Se ejecuta una única vez al levantar la tarea en el Worker
+            logger.info(f"Levantando entorno de aislamiento y cargando modelo {model_type} en memoria...")
 
-        # LA CLAVE: Empaquetamos todas las columnas en un array de Spark antes de cruzar la frontera de Python
-        df_predictions = df_parsed.withColumn(
-            "prediction",
-            predict_anomaly(array(*selected_columns))
-        )
+            if model_type in ["sklearn", "joblib"]:
+                model = joblib.load(model_path)
+            elif model_type == "xgboost_native":
+                import xgboost as xgb
+                model = xgb.Booster()
+                model.load_model(model_path)
+            elif model_type == "tensorflow":
+                from tensorflow.keras.models import load_model
+                model = load_model(model_path)
+            else:
+                model = joblib.load(model_path)  # Fallback por defecto
 
-        logger.info("¡Estructura de predicción generada con éxito!")
-        return df_predictions
+            # 2. PROCESAMIENTO EN BATCHES (Vía Apache Arrow)
+            for features_series in iterator:
+                # Reconstruimos eficientemente la matriz bidimensional (DataFrame de Pandas) para el predictor
+                pdf = pd.DataFrame(features_series.tolist(), columns=feature_cols)
 
-    except Exception as e:
-        logger.error(f"CRÍTICO: Error al aplicar el modelo de Machine Learning. Detalles: {e}")
-        raise
+                # Inferencia vectorizada adaptando la API si es necesario (ej: XGBoost DMatrix)
+                if model_type == "xgboost_native":
+                    import xgboost as xgb
+                    dtrain = xgb.DMatrix(pdf)
+                    predictions = model.predict(dtrain)
+                else:
+                    predictions = model.predict(pdf)
+
+                # 3. YIELD: Retorna el lote de predicciones de forma inmediata y mantiene el modelo vivo en RAM
+                yield pd.Series(predictions)
+
+        try:
+            logger.info("Inyectando Pandas UDF vectorizada con iteradores en el grafo de Spark...")
+
+            # Mapeamos las columnas dinámicas indicadas por configuración
+            selected_columns = [col(c) for c in feature_cols]
+
+            # Clave de rendimiento: Consolidamos las columnas en un array de Spark antes de cruzar la frontera de Python
+            df_predictions = df_parsed.withColumn(
+                "prediction",
+                predict_anomaly(array(*selected_columns))
+            )
+
+            logger.info("Pipeline de inferencia con soporte de Iteradores generado con éxito.")
+            return df_predictions
+
+        except Exception as e:
+            logger.error(f"CRÍTICO: Error en el motor de la Pandas UDF con iteradores. Detalles: {e}")
+            raise
