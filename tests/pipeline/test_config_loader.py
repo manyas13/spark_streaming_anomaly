@@ -4,7 +4,7 @@ import os
 from unittest.mock import patch
 
 # Importamos la función que vamos a testear
-from src.pipeline.config_loader import load_config
+from pipeline.config.loader import load_config
 
 
 class TestConfigLoader(unittest.TestCase):

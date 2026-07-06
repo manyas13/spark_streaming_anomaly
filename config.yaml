@@ -1,0 +1,169 @@
+# =========================================================
+# CONFIGURACIÓN FINAL DEL PIPELINE (ARQUITECTURA AGNÓSTICA)
+# =========================================================
+
+# 1. INGESTA DE DATOS
+# ---------------------------------------------------------
+kafka:
+  bootstrap_servers: "kafka:9093"
+  topic: "transactions"
+  starting_offsets: "latest"
+
+# 2. PARSEADOR Y TRANSFORMADOR UNIFICADO
+# ---------------------------------------------------------
+schema:
+  Time:
+    path: "Time"
+    type: "double"
+  V1:
+    path: "V1"
+    type: "double"
+  V2:
+    path: "V2"
+    type: "double"
+  V3:
+    path: "V3"
+    type: "double"
+  V4:
+    path: "V4"
+    type: "double"
+  V5:
+    path: "V5"
+    type: "double"
+  V6:
+    path: "V6"
+    type: "double"
+  V7:
+    path: "V7"
+    type: "double"
+  V8:
+    path: "V8"
+    type: "double"
+  V9:
+    path: "V9"
+    type: "double"
+  V10:
+    path: "V10"
+    type: "double"
+  V11:
+    path: "V11"
+    type: "double"
+  V12:
+    path: "V12"
+    type: "double"
+  V13:
+    path: "V13"
+    type: "double"
+  V14:
+    path: "V14"
+    type: "double"
+  V15:
+    path: "V15"
+    type: "double"
+  V16:
+    path: "V16"
+    type: "double"
+  V17:
+    path: "V17"
+    type: "double"
+  V18:
+    path: "V18"
+    type: "double"
+  V19:
+    path: "V19"
+    type: "double"
+  V20:
+    path: "V20"
+    type: "double"
+  V21:
+    path: "V21"
+    type: "double"
+  V22:
+    path: "V22"
+    type: "double"
+  V23:
+    path: "V23"
+    type: "double"
+  V24:
+    path: "V24"
+    type: "double"
+  V25:
+    path: "V25"
+    type: "double"
+  V26:
+    path: "V26"
+    type: "double"
+  V27:
+    path: "V27"
+    type: "double"
+  V28:
+    path: "V28"
+    type: "double"
+  Amount:
+    path: "Amount"
+    type: "double"
+
+  # --- EJEMPLO DE INGENIERÍA DE CARACTERÍSTICAS (Comentado) ---
+  # V1_V2_Suma:
+  #   transform: "V1 + V2"
+  #   type: "double"
+  #   keep: true
+  # Variable_Temporal:
+  #   path: "CampoBasura"
+  #   type: "string"
+  #   keep: false
+
+
+# 3. MOTOR DE INFERENCIA DE MACHINE LEARNING
+# ---------------------------------------------------------
+model:
+  name: "FraudDetector_Kaggle"
+  version: "v1.0.0"
+  path: "/opt/spark/work-dir/src/models/modelo_fraude.pkl"
+  type: "sklearn"
+  # Inyectamos 29 variables al modelo (Excluimos 'Time' según tu diseño original)
+  features:
+    - "Time"
+    - "V1"
+    - "V2"
+    - "V3"
+    - "V4"
+    - "V5"
+    - "V6"
+    - "V7"
+    - "V8"
+    - "V9"
+    - "V10"
+    - "V11"
+    - "V12"
+    - "V13"
+    - "V14"
+    - "V15"
+    - "V16"
+    - "V17"
+    - "V18"
+    - "V19"
+    - "V20"
+    - "V21"
+    - "V22"
+    - "V23"
+    - "V24"
+    - "V25"
+    - "V26"
+    - "V27"
+    - "V28"
+    - "Amount"
+
+# 4. ALMACENAMIENTO DE RESULTADOS
+# ---------------------------------------------------------
+sink:
+  format: "jdbc"
+  mode: "append"
+  checkpointLocation: "/opt/spark/work-dir/checkpoints/postgresql_kaggle_v2"
+
+  options:
+    url: "jdbc:postgresql://postgres_db:5432/fraud_detection"
+    dbtable: "alertas_fraude"
+    user: "tfm_user"
+    password: "tfm_password"
+    driver: "org.postgresql.Driver"

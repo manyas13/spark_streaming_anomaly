@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock
-from src.pipeline.reader import read_from_kafka
+from pipeline.ingestion.reader import read_from_kafka
 
 
 class TestReader(unittest.TestCase):
